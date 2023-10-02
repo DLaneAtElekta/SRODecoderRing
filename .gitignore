@@ -198,3 +198,5 @@ info.jenkinsproperties
 BuildArtifacts/
 *_?.?.?.?.properties
 Elekta.Platform.Framework.VC.VC.opendb
+
+.venv
