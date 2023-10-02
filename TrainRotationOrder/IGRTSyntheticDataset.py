@@ -9,6 +9,10 @@ def patient_position_to_quarter_rotation(patient_position):
             return np.array([0, 0, 0], dtype=float)
         case "hfp":
             return np.array([2, 0, 0], dtype=float)
+        case "ffs":
+            return np.array([2, 2, 0], dtype=float)
+        case "ffp":
+            return np.array([0, 2, 0], dtype=float)
         case _:
             raise ("bad string")
 
@@ -23,9 +27,6 @@ def iec_room_to_mac_shift(mac_dirs, iec_room_shift):
 
 
 def generate_patient_chart(num_sessions=3):
-    tensor = []
-    labels = []
-
     rng = np.random.default_rng()
     # rng.choice()
 
@@ -46,9 +47,9 @@ def generate_patient_chart(num_sessions=3):
 
         rotation_matrix = Rotation.from_euler("xyz", patient_shift[3:], degrees=True)
         rotation_matrix = rotation_matrix.as_matrix()
-        yield "rotx", rotation_matrix[0]
-        yield "roty", rotation_matrix[1]
-        yield "rotz", rotation_matrix[2]
+        yield "patient_shift rotx", rotation_matrix[0]
+        yield "patient_shift roty", rotation_matrix[1]
+        yield "patient_shift rotz", rotation_matrix[2]
         yield "patient_shift xlate", patient_shift[:3]
 
         iec_room_shift = patient_to_iec_room_shift(quarter_rotations, patient_shift)
@@ -57,8 +58,6 @@ def generate_patient_chart(num_sessions=3):
         )
         yield "mac_shift xlate", mac_shift[:3]
         yield "mac_shift rot", mac_shift[3:]
-
-    return tensor
 
 
 from rich import print
