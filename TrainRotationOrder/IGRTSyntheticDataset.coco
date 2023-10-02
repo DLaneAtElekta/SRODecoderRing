@@ -1,0 +1,19 @@
+
+
+def patient_position_to_quad_rotations(patient_position:str) -> List[int]:
+    match patient_position:
+        case "hfs":
+            return [0,0,0]
+        case "hfp":
+            return [2,0,0]
+
+
+def patient_to_room(quad_rotation:List[int], shift:List[float]):
+    return shift
+
+
+def room_to_native(mac, x):
+    return x
+
+if '__main__' == __name__:
+    [1,2,3] |> map$(lambda x:x*x)
