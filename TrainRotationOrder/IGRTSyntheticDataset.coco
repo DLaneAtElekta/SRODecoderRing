@@ -1,19 +1,67 @@
+from IGRTSyntheticDataset import patient_position_to_quarter_rotation
+
+def patient_to_iec_room_shift(quarter_rotations, patient_shift) =
+    quarter_rotations 
+    |> .* 90 
+    |> Rotation.from_euler$("xyz", $, degrees=True) 
+    |> .apply(patient_shift[3:])
+    |> np.append$(patient_shift[:3], $)
+
+def iec_room_to_native_shift(native_dirs, iec_room_shift) =
+    native_dirs * iec_room_shift
 
 
-def patient_position_to_quad_rotations(patient_position:str) -> List[int]:
-    match patient_position:
-        case "hfs":
-            return [0,0,0]
-        case "hfp":
-            return [2,0,0]
+
+def generate_patient_chart(rng=np.random.default_rng(), num_sessions=3):
+
+    systematic_offset = rng.standard_normal(3), rng.standard_normal(3) |> np.exp
 
 
-def patient_to_room(quad_rotation:List[int], shift:List[float]):
-    return shift
+    for n in range(num_sessions):
+        # yield f"session{n} init couch translate", init_couch[:3]
+        # yield f"session{n} init couch rotate", init_couch[3:]
+        # yield f"session{n} localization offset translate"
+
+        translate = (
+            systematic_offset 
+            |> rng.normal
+        )
+
+        rotate = (
+            systematic_offset
+            |> rng.normal
+            |> Rotation.from_euler$("xyz", $, degrees=True)
+            |> .as_matrix()
+        )
+
+        iec_room_shift = patient_to_iec_room_shift(quarter_rotations, patient_match)
+        native_shift = iec_room_to_native_shift(
+            native_dirs=native_dirs, iec_room_shift=iec_room_shift
+        )
+        patient_chart["session{n} native shift translate"] = native_shift[:3]
+        patient_chart["session{n} native shift rotate"] = native_shift[3:]
+        
+        {
+            "translate" : translate,
+            "rotate": rotate,
+            "dose tracking": np.array([(n + 1) * 0.03] * 3),
+        }
 
 
-def room_to_native(mac, x):
-    return x
+    patient_chart = {
+        "patient position quater rotations": 
+            rng.choice(["hfs", "hfp", "ffs", "ffp"], 
+                p=[0.9, 0.05, 0.02, 0.03])
+            |> patient_position_to_quarter_rotation_func
+            |> np.array$($_, np.float),
+        "native translate directions": np.array([1,1,1]),
+        "native rotate directions": np.array([1,1,1]),
+        "couch translate init": np.array([0,0,0]),
+        "couch rotate init": np.array([0,0,0]),
+    }
+
+    return patient_chart
+
 
 if '__main__' == __name__:
     [1,2,3] |> map$(lambda x:x*x)

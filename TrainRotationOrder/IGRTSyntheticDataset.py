@@ -20,19 +20,12 @@ torch.backends.cudnn.benchmark = False
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 print("Device:", device)
 
-
-def patient_position_to_quarter_rotation(patient_position):
-    match patient_position.lower():
-        case "hfs":
-            return np.array([0, 0, 0], dtype=float)
-        case "hfp":
-            return np.array([2, 0, 0], dtype=float)
-        case "ffs":
-            return np.array([2, 2, 0], dtype=float)
-        case "ffp":
-            return np.array([0, 2, 0], dtype=float)
-        case _:
-            raise ("bad string")
+patient_position_to_quarter_rotation = {
+    "hfs": [0, 0, 0],
+    "hfp": [2, 0, 0],
+    "ffs": [2, 2, 0],
+    "ffp": [0, 2, 0],
+}
 
 
 def patient_to_iec_room_shift(quarter_rotations, patient_shift):
@@ -51,7 +44,8 @@ def generate_patient_chart(rng=np.random.default_rng(), num_sessions=3):
     patient_position = rng.choice(
         ["hfs", "hfp", "ffs", "ffp"], p=[0.9, 0.05, 0.02, 0.03]
     )
-    quarter_rotations = patient_position_to_quarter_rotation(patient_position)
+    quarter_rotations = patient_position_to_quarter_rotation[patient_position]
+    quarter_rotations = np.array(quarter_rotations, np.float32)
     patient_chart["patient position quater rotations"] = quarter_rotations
 
     native_dirs = np.array([1, 1, 1, 1, 1, 1])
@@ -356,7 +350,7 @@ def train_model(**kwargs):
             # GenerateCallback(every_n_epochs=5),
             # SamplerCallback(every_n_epochs=5),
             # OutlierCallback(),
-            # LearningRateMonitor("epoch"),
+            LearningRateMonitor("epoch"),
         ],
     )
     # Check whether pretrained model exists. If yes, load it and skip training
