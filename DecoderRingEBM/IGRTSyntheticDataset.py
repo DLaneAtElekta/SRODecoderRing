@@ -52,7 +52,7 @@ def generate_patient_chart(rng=np.random.default_rng(), num_sessions=3):
         ["hfs", "hfp", "ffs", "ffp"], p=[0.9, 0.05, 0.02, 0.03]
     )
     quarter_rotations = patient_position_to_quarter_rotation(patient_position)
-    patient_chart["patient position quater rotations"] = quarter_rotations
+    patient_chart["patient position quarter rotations"] = quarter_rotations
 
     native_dirs = np.array([1, 1, 1, 1, 1, 1])
     patient_chart["native translate directions"] = native_dirs[:3]
