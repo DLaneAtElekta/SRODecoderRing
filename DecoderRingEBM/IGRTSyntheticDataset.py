@@ -37,57 +37,52 @@ def iec_room_to_native_shift(native_dirs, iec_room_shift):
 def generate_patient_chart(rng=np.random.default_rng(), num_sessions=3):
     patient_chart = {}
 
-    patient_position = rng.choice(
-        ["hfs", "hfp", "ffs", "ffp"], p=[0.9, 0.05, 0.02, 0.03]
-    )
-    quarter_rotations = patient_position_to_quarter_rotation(patient_position)
-    patient_chart["patient position quarter rotations"] = quarter_rotations
-
-    native_dirs = np.array([1, 1, 1, 1, 1, 1])
-    patient_chart["native translate directions"] = native_dirs[:3]
-    patient_chart["native rotate directions"] = native_dirs[3:]
-
-    init_couch = np.array([0, 0, 0, 0, 0, 0])
-    patient_chart["init couch translate"] = init_couch[:3]
-    patient_chart["init couch rotate"] = init_couch[3:]
-
-    # TODO: generate protocol parameters
+    # generate protocol parameters
 
     # tolerance for shift
-    apply_shift_tolerance = 0.1  # cm
+    apply_shift_tolerance = rng.choice([0.1, 0.2, 0.3])  # cm
+    patient_chart["apply_shift_tolerance"] = apply_shift_tolerance
 
-    # phase 1:
-    phase1_duration = (0.12, 0.06)  # mean/stddev of relative fraction
-    phase1_p_imaging = 0.9
-    phase1_p_apply_shift = 0.9
-    phase1_p_apply_systematic_offset = 0.9
+    # period parameters
+    patient_chart["period1_duration"] = rng.normal(0.12, 0.06)
+    patient_chart["period1_p_imaging"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
+    patient_chart["period1_p_apply_shift"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
+    patient_chart["period1_p_apply_systematic_offset"] = np.clip(
+        rng.normal(0.9, 0.1), 0.0, 1.0
+    )
 
-    # phase 2:
-    phase2_duration = (0.90, 1.0)  # mean/stddev of relative fraction
-    phase2_p_imaging = 0.9
-    phase2_p_apply_shift = 0.9
+    patient_chart["period2_duration"] = 1.0  # extends past the end
+    patient_chart["period2_p_imaging"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
+    patient_chart["period2_p_apply_shift"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
 
     target_match_mean_stddev = rng.standard_normal(6), np.exp(rng.standard_normal(6))
     print(f"{target_match_mean_stddev}")
 
+    total_sessions = 30
+    at_period = 0
     for n in range(num_sessions):
-        # yield f"session{n} init couch translate", init_couch[:3]
-        # yield f"session{n} init couch rotate", init_couch[3:]
-        # yield f"session{n} localization offset translate"
+        fraction_session = n / total_sessions
+        while patient_chart.get(f"period{at_period}_duration") < fraction_session:
+            at_period += 1
 
-        target_match = rng.normal(target_match_mean_stddev)
+        if patient_chart.get(f"period{at_period}_p_imaging"):
+            target_match = rng.normal(target_match_mean_stddev)
+        else:
+            target_match = np.array([0,0,0,0,0,0])
+
+        patient_chart[f"session{n} patient match translate"] = target_match[:3]
 
         rotation_matrix = Rotation.from_euler("xyz", target_match[3:], degrees=True)
         rotation_matrix = rotation_matrix.as_matrix()
-        patient_chart[f"session{n} patient match translate"] = target_match[:3]
         patient_chart[f"session{n} patient match x rotate"] = rotation_matrix[0]
         patient_chart[f"session{n} patient match y rotate"] = rotation_matrix[1]
         patient_chart[f"session{n} patient match z rotate"] = rotation_matrix[2]
 
-        iec_room_shift = patient_to_iec_room_shift(quarter_rotations, target_match)
-        native_shift = iec_room_to_native_shift(
-            native_dirs=native_dirs, iec_room_shift=iec_room_shift
-        )
+        if patient_chart.get(f"period{at_period}_p_apply_shift"):
+            native_shift = target_match
+        else:
+            native_shift = np.array([0,0,0,0,0,0])
+
         patient_chart[f"session{n} native shift translate"] = native_shift[:3]
         patient_chart[f"session{n} native shift rotate"] = native_shift[3:]
 
