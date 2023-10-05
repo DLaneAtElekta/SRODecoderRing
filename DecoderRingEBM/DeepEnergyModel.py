@@ -1,5 +1,6 @@
 # Path to the folder where the pretrained models are saved
 import torch
+import torch.optim as optim
 import pytorch_lightning as pl
 
 from DecoderRingEBM.MCMCSampler import MCMCSampler
