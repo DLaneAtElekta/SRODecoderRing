@@ -80,9 +80,6 @@ ipch/
 _ReSharper*/
 *.[Rr]e[Ss]harper
 
-# TeamCity is a build add-in
-_TeamCity*
-
 # DotCover is a Code Coverage Tool
 *.dotCover
 
@@ -197,8 +194,9 @@ BuildTools
 .dcm
 .mr
 info.jenkinsproperties
-BuildArtifacts/
 *_?.?.?.?.properties
-Elekta.Platform.Framework.VC.VC.opendb
 
 .venv
+
+saved_models/
+__pycache__/
