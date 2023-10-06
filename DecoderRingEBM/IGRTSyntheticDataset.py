@@ -40,35 +40,45 @@ def generate_patient_chart(rng=np.random.default_rng(), num_sessions=3):
     # generate protocol parameters
 
     # tolerance for shift
-    apply_shift_tolerance = rng.choice([0.1, 0.2, 0.3])  # cm
+    apply_shift_tolerance = np.array([rng.choice([0.1, 0.2, 0.3])])  # cm
     patient_chart["apply_shift_tolerance"] = apply_shift_tolerance
 
     # period parameters
-    patient_chart["period1_duration"] = rng.normal(0.12, 0.06)
-    patient_chart["period1_p_imaging"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
-    patient_chart["period1_p_apply_shift"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
-    patient_chart["period1_p_apply_systematic_offset"] = np.clip(
-        rng.normal(0.9, 0.1), 0.0, 1.0
+    patient_chart["period1_duration"] = np.array([rng.normal(0.12, 0.06)])
+    patient_chart["period1_p_imaging"] = np.array(
+        [np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)]
+    )
+    patient_chart["period1_p_apply_shift"] = np.array(
+        [np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)]
+    )
+    patient_chart["period1_p_apply_systematic_offset"] = np.array(
+        [np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)]
     )
 
-    patient_chart["period2_duration"] = 1.0  # extends past the end
-    patient_chart["period2_p_imaging"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
-    patient_chart["period2_p_apply_shift"] = np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)
+    patient_chart["period2_duration"] = np.array([1.0])  # extends past the end
+    patient_chart["period2_p_imaging"] = np.array(
+        [np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)]
+    )
+    patient_chart["period2_p_apply_shift"] = np.array(
+        [np.clip(rng.normal(0.9, 0.1), 0.0, 1.0)]
+    )
 
     target_match_mean_stddev = rng.standard_normal(6), np.exp(rng.standard_normal(6))
     print(f"{target_match_mean_stddev}")
 
     total_sessions = 30
-    at_period = 0
+    at_period = 1
     for n in range(num_sessions):
         fraction_session = n / total_sessions
         while patient_chart.get(f"period{at_period}_duration") < fraction_session:
             at_period += 1
 
-        if patient_chart.get(f"period{at_period}_p_imaging"):
-            target_match = rng.normal(target_match_mean_stddev)
+        if rng.uniform() < patient_chart.get(f"period{at_period}_p_imaging"):
+            target_match = rng.normal(
+                target_match_mean_stddev[0], target_match_mean_stddev[1]
+            )
         else:
-            target_match = np.array([0,0,0,0,0,0])
+            target_match = np.array([0, 0, 0, 0, 0, 0])
 
         patient_chart[f"session{n} patient match translate"] = target_match[:3]
 
@@ -78,13 +88,17 @@ def generate_patient_chart(rng=np.random.default_rng(), num_sessions=3):
         patient_chart[f"session{n} patient match y rotate"] = rotation_matrix[1]
         patient_chart[f"session{n} patient match z rotate"] = rotation_matrix[2]
 
-        if patient_chart.get(f"period{at_period}_p_apply_shift"):
-            native_shift = target_match
+        if target_match[
+            :3
+        ].max() > apply_shift_tolerance and rng.uniform() < patient_chart.get(
+            f"period{at_period}_p_apply_shift"
+        ):
+            table_shift = target_match
         else:
-            native_shift = np.array([0,0,0,0,0,0])
+            table_shift = np.array([0, 0, 0, 0, 0, 0])
 
-        patient_chart[f"session{n} native shift translate"] = native_shift[:3]
-        patient_chart[f"session{n} native shift rotate"] = native_shift[3:]
+        patient_chart[f"session{n} table shift translate"] = table_shift[:3]
+        patient_chart[f"session{n} table shift rotate"] = table_shift[3:]
 
         dose_tracking = np.array([(n + 1) * 0.03] * 3)
         patient_chart[f"session{n} dose tracking"] = dose_tracking
@@ -110,7 +124,11 @@ class IGRTSyntheticDataset(torch.utils.data.Dataset):
         return len(self.patient_charts)
 
     def __getitem__(self, idx):
-        return np.stack(list(self.patient_charts[idx].values()))
+        item = self.patient_charts[idx].values()
+        item = list(item)
+        item = np.concatenate(item)
+        item = np.expand_dims(item, -1)
+        return item
 
 
 CHECKPOINT_PATH = "./saved_models/igrt_synthetic_dataset"
@@ -127,7 +145,7 @@ ds = IGRTSyntheticDataset(num_patients=1000)
 
 print(ds.get_patient_chart(0))
 print(ds.get_tensor_labels())
-# print(ds[0])
+print(ds[0])
 
 train_dl = torch.utils.data.DataLoader(ds, batch_size=28, shuffle=True)
 val_dl = torch.utils.data.DataLoader(ds, batch_size=56, shuffle=False)
@@ -156,7 +174,7 @@ if os.path.isfile(pretrained_filename):
     model = DeepEnergyModel.load_from_checkpoint(pretrained_filename)
 else:
     pl.seed_everything(42)
-    model = DeepEnergyModel(**kwargs)
+    model = DeepEnergyModel(np.random.default_rng(), (71, 1), train_dl.batch_size)
     trainer.fit(model, train_dl, val_dl)
     model = DeepEnergyModel.load_from_checkpoint(
         trainer.checkpoint_callback.best_model_path

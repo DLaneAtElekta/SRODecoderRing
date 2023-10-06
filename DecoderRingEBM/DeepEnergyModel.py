@@ -20,18 +20,18 @@ class MLPModel(torch.nn.Module):
 
         # Series of convolutions and Swish activation functions
         self.layers = torch.nn.Sequential(
-            torch.nn.Linear(3, 6),  # [3x26]
+            torch.nn.Linear(1, 6),  # [3x26]
             Swish(),
-            torch.nn.AvgPool1d(3, stride=2),
+            # torch.nn.AvgPool1d((2,1)),
             torch.nn.Linear(6, 12),
             Swish(),
-            torch.nn.AvgPool1d(3, stride=2),
+            # torch.nn.AvgPool1d((2,1)),
             torch.nn.Linear(12, 24),
             Swish(),
-            torch.nn.AvgPool1d(3, stride=2),
+            # torch.nn.AvgPool1d((2,1)),
             torch.nn.Linear(24, 6),
             Swish(),
-            torch.nn.AvgPool1d(3, stride=2),
+            # torch.nn.AvgPool1d((2,1)),
             torch.nn.Linear(6, 1),
         )
 
@@ -39,21 +39,52 @@ class MLPModel(torch.nn.Module):
         return self.layers(x)
 
 
+class CNNModel(torch.nn.Module):
+    def __init__(self):
+        super(CNNModel, self).__init__()
+
+        self.map_layer = torch.nn.Linear(in_features=64, out_features=64, bias=True)
+        self.conv1 = torch.nn.Conv2d(
+            1, 16, kernel_size=(3, 3), stride=(1, 1), padding="same"
+        )
+        self.max = torch.nn.MaxPool2d(
+            kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False
+        )
+        self.swish = Swish()
+        self.conv2 = torch.nn.Conv2d(
+            16, 32, kernel_size=(3, 3), stride=(1, 1), padding="same"
+        )
+
+        self.flatten = torch.nn.Flatten()
+        self.map_final = torch.nn.Linear(2 * 2 * 32, 1)
+
+    def forward(self, x):
+        x = self.map_layer(x)
+        x = self.conv1(x)
+        x = self.max(x)
+        x = self.swish(x)
+        x = self.conv2(x)
+        x = self.max(x)
+        x = self.swish(x)
+        x = self.flatten(x)
+        x = self.map_final(x)
+        return x
+
+
 class DeepEnergyModel(pl.LightningModule):
-    def __init__(
-        self, img_shape, batch_size, alpha=0.1, lr=1e-4, beta1=0.0, **MLP_args
-    ):
+    def __init__(self, rng, img_shape, batch_size, alpha=0.1, lr=1e-4, beta1=0.0):
         super(DeepEnergyModel, self).__init__()
         self.save_hyperparameters()
 
-        self.mlp = MLPModel(**MLP_args)
+        self.mlp = MLPModel()
+        self.cnn = CNNModel()
         self.sampler = MCMCSampler(
-            self.mlp, img_shape=img_shape, sample_size=batch_size
+            self.cnn, rng=rng, img_shape=img_shape, sample_size=batch_size
         )
         self.example_input_array = torch.zeros(1, *img_shape)
 
     def forward(self, x):
-        z = self.mlp(x)
+        z = self.cnn(x)
         return z
 
     def configure_optimizers(self):
@@ -96,11 +127,11 @@ class DeepEnergyModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # For validating, we calculate the contrastive divergence between purely random images and unseen examples
         # Note that the validation/test step of energy-based models depends on what we are interested in the model
-        real_imgs, _ = batch
+        real_imgs = batch
         fake_imgs = torch.rand_like(real_imgs) * 2 - 1
 
         inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
-        real_out, fake_out = self.mlp(inp_imgs).chunk(2, dim=0)
+        real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
 
         cdiv = fake_out.mean() - real_out.mean()
         self.log("val_contrastive_divergence", cdiv)
