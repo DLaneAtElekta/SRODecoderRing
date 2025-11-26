@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Compile Include="Types.fs" />
+    <Compile Include="PredicateMLP.fs" />
     <Compile Include="Dense.fs" />
     <Compile Include="Conv2d.fs" />
     <Compile Include="Model.fs" />
